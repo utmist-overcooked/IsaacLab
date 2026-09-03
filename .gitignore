@@ -88,3 +88,6 @@ _build
 
 # Superpowers (Claude Code plugin artifacts)
 docs/superpowers/
+
+# NvStreamer recording logs
+*.etli
