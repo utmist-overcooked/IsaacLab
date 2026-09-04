@@ -168,6 +168,12 @@ class CobotEnvCfg(DirectMARLEnvCfg):
     camera_resolution: tuple[int, int] = (200, 200)
     """Camera (width, height) when cameras are enabled [px]."""
 
+    enable_debug_camera: bool = False
+    """Spawn a fixed "oracle" overview camera above the divider wall that frames both
+    stations at once (neither robot can see the other). Purely for debugging/demos/video;
+    it is never wired into observations. Independent of :attr:`enable_cameras`, but like
+    those cameras it needs the launcher's ``--enable_cameras`` for rendering."""
+
     # ---- respawn / detection thresholds ----
     place_radius: float = 0.08
     """Max horizontal distance from receptacle center for a placement to count [m]."""

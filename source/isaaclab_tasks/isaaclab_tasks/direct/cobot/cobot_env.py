@@ -28,6 +28,23 @@ _STATIONS = ("a", "b")
 _STATION_SIGNS = (1.0, -1.0)
 _CUBE_ORDER = ("red", "blue", "green")  # indices 0/1 = receiver task, 2 = sender filler
 
+# "Oracle" debug view: perched above and to one side of the divider wall so both stations
+# are in frame at once. Env-local (eye, target); world == env-local at num_envs=1. Mirrors
+# the ``oracle_debug`` entry in scripts/cobot/capture_views.py.
+_ORACLE_CAM_EYE = (3.741, 0.115, 2.6)
+_ORACLE_CAM_TARGET = (2.899, 0.1, 2.061)
+
+
+def _look_at_quat(eye: tuple[float, float, float], target: tuple[float, float, float]):
+    """Quaternion (w, x, y, z), "world" convention, pointing +X from ``eye`` at ``target``."""
+    from isaaclab.utils.math import quat_from_euler_xyz
+
+    dx, dy, dz = (t - c for c, t in zip(eye, target))
+    yaw = torch.atan2(torch.tensor([dy]), torch.tensor([dx]))
+    pitch = torch.atan2(torch.tensor([-dz]), torch.hypot(torch.tensor([dx]), torch.tensor([dy])))
+    quat = quat_from_euler_xyz(torch.zeros(1), pitch, yaw)
+    return tuple(quat[0].tolist())
+
 
 class CobotEnv(DirectMARLEnv):
     """Two loosely-coupled Franka stations with an asymmetric-information color cue.
@@ -234,6 +251,25 @@ class CobotEnv(DirectMARLEnv):
                 )
                 self.scene.sensors[f"wrist_cam_{st}"] = Camera(wrist_cfg)
                 self.scene.sensors[f"station_cam_{st}"] = Camera(station_cfg)
+
+        # fixed "oracle" overview camera for debugging/demos only (never observed)
+        if self.cfg.enable_debug_camera:
+            from isaaclab.sensors import Camera, CameraCfg
+
+            w, h = self.cfg.camera_resolution
+            oracle_cfg = CameraCfg(
+                prim_path="/World/envs/env_.*/OracleCam",
+                width=w,
+                height=h,
+                data_types=["rgb"],
+                spawn=sim_utils.PinholeCameraCfg(
+                    focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+                ),
+                offset=CameraCfg.OffsetCfg(
+                    pos=_ORACLE_CAM_EYE, rot=_look_at_quat(_ORACLE_CAM_EYE, _ORACLE_CAM_TARGET), convention="world"
+                ),
+            )
+            self.scene.sensors["oracle_cam"] = Camera(oracle_cfg)
 
     def _setup_visuals(self):
         """Cache displayColor attributes and paint the static cube colors."""
